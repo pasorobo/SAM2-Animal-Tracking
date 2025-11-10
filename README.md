@@ -12,6 +12,8 @@
 
 ## :rocket: Getting Started
 
+### Batch Processing Mode (Datasets)
+
 **TLDR.** Follow the [installation instructions](./docs/INSTALL.md), add your dataset in [dancetrack format](./docs/DATASET.md) and run this command:
 
 `python run.py --dataset <your dataset name>`
@@ -20,6 +22,30 @@
 - See [DATASET.md](./docs/DATASET.md) for dataset downloading and preprocessing.
 - See [DETECTION.md](./docs/DETECTION.md) for information about supported detection models and loading detections.
 - See [TRACKING.md](./docs/TRACKING.md) for how to run tracking on a dataset.
+
+### :movie_camera: Real-time Streaming Mode (NEW!)
+
+Track objects in real-time from USB cameras or video files:
+
+**USB Camera:**
+```bash
+python run_streaming.py --source 0 --text-prompt animal
+```
+
+**Video File:**
+```bash
+python run_streaming.py --source /path/to/video.mp4 --text-prompt person
+```
+
+**Features:**
+- :camera: USB webcam support
+- :clapper: Video file streaming
+- :art: Real-time visualization with masks and IDs
+- :zap: Adaptive detection thresholds (online Otsu method)
+- :floppy_disk: Optional video output saving
+- :video_game: Interactive controls (pause, reset, quit)
+
+See [STREAMING.md](./docs/STREAMING.md) for detailed usage instructions and examples.
 
 ## :bar_chart: Results
 

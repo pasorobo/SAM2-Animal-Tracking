@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.join(BASE_DIR, 'tracker'))
 
 from tracker.streaming_input import StreamingInputHandler
 from tracker.online_sam2tracker import OnlineSAM2Tracker
+from tracker.online_sam2tracker_vos import OnlineSAM2TrackerVOS
 from tracker.realtime_visualizer import RealtimeVisualizer, VideoWriter
 from tracker.utils.misc import str2bool
 
@@ -176,6 +177,27 @@ def parse_args():
         help="Compile SAM2 encoder for faster inference"
     )
 
+    # VOS Optimization settings (Advanced)
+    parser.add_argument(
+        "--vos-optimize",
+        type=str2bool,
+        default=False,
+        help="Enable VOS optimizations (torch.compile all modules, ~2x speed, requires CUDA)"
+    )
+    parser.add_argument(
+        "--num-maskmem",
+        type=int,
+        default=7,
+        help="Number of frames to keep in memory (VOS mode, prevents memory explosion)"
+    )
+    parser.add_argument(
+        "--compile-mode",
+        type=str,
+        default="max-autotune",
+        choices=["default", "reduce-overhead", "max-autotune"],
+        help="torch.compile mode (max-autotune=fastest but slower startup)"
+    )
+
     args = parser.parse_args()
 
     # Build text prompt
@@ -209,7 +231,10 @@ def parse_args():
             "CHECKPOINT": args.sam2_checkpoint,
             "CONFIG": args.sam2_config,
             "COMPILE_ENCODER": args.compile_sam2,
-            "DEVICE": args.sam2_device
+            "DEVICE": args.sam2_device,
+            "VOS_COMPILE": args.vos_optimize,
+            "NUM_MASKMEM": args.num_maskmem,
+            "COMPILE_MODE": args.compile_mode
         },
         "SAM2MOT": {
             "USE_ADAPTIVE_THRESHOLD": args.use_adaptive_threshold,
@@ -265,6 +290,10 @@ def main():
     print(f"Detection threshold: {config['DETECTOR']['TH_DET']}")
     print(f"Adaptive threshold: {config['SAM2MOT']['USE_ADAPTIVE_THRESHOLD']}")
     print(f"Device: {config['SAM2']['DEVICE']}")
+    print(f"VOS Optimization: {config['SAM2']['VOS_COMPILE']}")
+    if config['SAM2']['VOS_COMPILE']:
+        print(f"  - Compile mode: {config['SAM2']['COMPILE_MODE']}")
+        print(f"  - Memory limit: {config['SAM2']['NUM_MASKMEM']} frames")
     print("=" * 80)
     print("\nPress 'q' to quit, 'p' to pause, 'r' to reset tracker")
     print()
@@ -272,9 +301,14 @@ def main():
     # Set device
     device = torch.device(config['SAM2']['DEVICE'])
 
-    # Initialize tracker
+    # Initialize tracker (VOS-optimized or standard)
     print("Initializing tracker...")
-    tracker = OnlineSAM2Tracker(config, device)
+    if config['SAM2']['VOS_COMPILE']:
+        print("Using VOS-optimized tracker (2x faster, initial warmup required)")
+        tracker = OnlineSAM2TrackerVOS(config, device)
+    else:
+        print("Using standard tracker")
+        tracker = OnlineSAM2Tracker(config, device)
 
     # Initialize input handler
     print("Opening input source...")

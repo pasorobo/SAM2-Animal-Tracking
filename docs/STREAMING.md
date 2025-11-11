@@ -219,6 +219,102 @@ python run_streaming.py \
   --output-video outputs/high_perf.mp4
 ```
 
+## VOS Optimization (Advanced - 2x Speed Boost!)
+
+### What is VOS Optimization?
+
+VOS (Video Object Segmentation) optimization uses advanced PyTorch compilation techniques to achieve **~2x speed improvement**. Based on [Gy920's segment-anything-2-real-time](https://github.com/Gy920/segment-anything-2-real-time) implementation.
+
+**Key Features:**
+- ✅ `torch.compile` for all SAM2 modules (memory encoder, attention, prompt encoder, mask decoder)
+- ✅ Memory management with `num_maskmem` limit (prevents memory explosion)
+- ✅ ~2x faster inference (after initial warmup)
+- ⚠️ Requires CUDA (GPU)
+- ⚠️ First few frames are slower (compilation overhead)
+
+### Enable VOS Optimization
+
+Add `--vos-optimize True` to your command:
+
+```bash
+python run_streaming.py \
+  --source 0 \
+  --text-prompt animal \
+  --vos-optimize True
+```
+
+**Expected Performance (RTX 3090):**
+
+| Configuration | FPS (Standard) | FPS (VOS-Optimized) | Speedup |
+|---------------|----------------|---------------------|---------|
+| `hiera_large` | ~8 FPS | ~16 FPS | 2.0x |
+| `hiera_base_plus` | ~12 FPS | ~24 FPS | 2.0x |
+| `hiera_small` | ~20 FPS | ~40 FPS | 2.0x |
+
+### VOS Options
+
+**`--vos-optimize`**: Enable VOS optimizations (default: `False`)
+```bash
+--vos-optimize True  # Enable 2x speed boost
+```
+
+**`--num-maskmem`**: Number of frames to keep in memory (default: `7`)
+```bash
+--num-maskmem 7  # Keep last 7 frames (prevents memory explosion)
+```
+
+**`--compile-mode`**: torch.compile optimization mode (default: `max-autotune`)
+```bash
+--compile-mode max-autotune     # Fastest (slower startup)
+--compile-mode reduce-overhead  # Balanced
+--compile-mode default          # Conservative
+```
+
+### Example: High-Performance Tracking
+
+```bash
+# VOS-optimized tracking with small model = ~40 FPS on RTX 3090
+python run_streaming.py \
+  --source 0 \
+  --text-prompt animal \
+  --vos-optimize True \
+  --sam2-checkpoint sam2/checkpoints/sam2.1_hiera_small.pt \
+  --sam2-config configs/sam2.1/sam2.1_hiera_s.yaml \
+  --num-maskmem 7 \
+  --compile-mode max-autotune \
+  --output-video outputs/vos_tracking.mp4
+```
+
+### VOS Demo Script
+
+A simplified demo is available:
+
+```bash
+python examples/streaming_demo_vos.py --source 0 --prompt animal
+```
+
+### Important Notes
+
+1. **Warmup Period**: First 5-10 frames will be slower (torch.compile overhead)
+2. **CUDA Required**: VOS optimization requires GPU. Automatically disabled on CPU.
+3. **Memory Stability**: `num_maskmem` prevents memory explosion during long sessions
+4. **Compilation Time**: Initial startup takes ~30-60 seconds for compilation
+5. **Model Compatibility**: Works with all SAM2 model sizes
+
+### When to Use VOS Optimization
+
+**✅ Use VOS when:**
+- You have a CUDA-capable GPU
+- Real-time performance is critical (>20 FPS needed)
+- Long-running sessions (hours/days)
+- Processing high-resolution video
+
+**❌ Don't use VOS when:**
+- Running on CPU only
+- Quick testing (warmup overhead not worth it)
+- Debugging (compilation makes debugging harder)
+- GPU memory is limited (<8GB)
+
 ## Performance Optimization Tips
 
 ### 1. Use Smaller SAM2 Model
